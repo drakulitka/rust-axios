@@ -1,7 +1,15 @@
 [package]
 name = "rust-axios"
-version = "0.1.0"
+version = "0.0.1"
+#rust-version = "1.80.0"
 edition = "2024"
+authors = ["Sergei"]
+description = "HTTP client for Rust lang"
+keywords = ["web"]
+
+[features]
+default = []
+
 
 [dependencies]
 reqwest = { version = "0.12.20", features = ["json"] }
