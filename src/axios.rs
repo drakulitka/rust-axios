@@ -1,22 +1,16 @@
 use crate::config::{AxiosConfig, AxiosRequestConfig};
 use crate::error::{AxiosError, AxiosErrorValue};
-use crate::interceptor::InterceptorManager;
 use crate::method::HttpMethod;
+use crate::middleware::auth_middleware::AuthMiddleware;
 use crate::response::AxiosResponse;
 
 #[derive(Clone)]
 pub struct Axios {
-    client: reqwest::Client,
-    pub config: AxiosConfig,
-    pub interceptors: InterceptorManager,
+    config: AxiosConfig,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl Axios {
-
-    /// Creates a new Ruxios client with default configuration.
-    pub fn new() -> Self {
-        Self::default()
-    }
 
     /// Generalized method to perform an HTTP request.
     pub async fn request<TReq, TRes, TErr>(
@@ -29,15 +23,14 @@ impl Axios {
         TRes: serde::de::DeserializeOwned,
         TErr: serde::de::DeserializeOwned,
     {
-        let full_url = format!("{}{}", self.config.base_url, cfg.url);
+        let url = reqwest::Url::parse(
+            format!("{}{}", self.config.base_url, cfg.url).as_str()
+        ).expect("Failed to parse url");
 
-        let client = self.client.clone();
-
-        let mut req_builder = client
-            .request(
-                HttpMethod::string_to_method(cfg.method.unwrap_or("GET".to_owned())),
-                full_url,
-            );
+        let mut req_builder = self.client.request(
+            HttpMethod::string_to_method(cfg.method.unwrap_or("GET".to_owned())),
+            url,
+        );
 
         for (key, value) in self.config.headers.clone() {
             req_builder = req_builder.header(key, value);
@@ -55,19 +48,9 @@ impl Axios {
             req_builder
         };
 
-        let mut req = req_builder.build()?;
+        let req = req_builder.build()?;
 
-        // Выполнение перехватчиков перед отправкой запроса
-        for handler in  self.interceptors.request_handlers.iter() {
-            req = handler.execute(req).await;
-        }
-
-        let mut res = client.execute(req).await?;
-
-        // Выполнение перехватчиков после получения ответа
-        for handler in  self.interceptors.response_handlers.iter() {
-            res = handler.execute(res).await;
-        }
+        let mut res = self.client.execute(req).await?;
 
         let status = res.status();
 
@@ -261,10 +244,17 @@ impl Axios {
 impl Default for Axios {
     /// Implements a default configuration for a Ruxios client.
     fn default() -> Self {
+
+        let client = reqwest_middleware::ClientBuilder::new(
+            reqwest::Client::new()
+        )
+            // .with(reqwest_tracing::TracingMiddleware::default())
+            .with(AuthMiddleware)
+            .build();
+        
         Self {
-            client: reqwest::Client::new(),
             config: AxiosConfig::new(),
-            interceptors: InterceptorManager::new(),
+            client,
         }
     }
 }

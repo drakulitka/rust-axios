@@ -20,29 +20,36 @@ Raxios will not be out of Alpha state and stable until the 1.0.0 release.
 ```rust
 use rust_axios::Axios;
 
+type TypeError = String;
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
-struct ToReceive {
-    field1: String
+struct TypeRequest {
+    field: String
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
-struct ToSend {
-    field1: String
+struct TypeResponse {
+    field: String
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 
-    // An error _might_ occur here if you try to set non-valid headers in the Options
-    let client = Axios::new("", None)?;
+    use ruxios::prelude::*;
 
-    let data_to_send = ToSend { field1 : String::from("Hello World") };
+    let api = Axios::from(AxiosConfig {
+        base_url: String::from("https://api.mysite.com"),
+        ..Default::default()
+    });
 
-    let result = client
-        .post::<ToReceive, ToSend>("/endpoint", Some(data_to_send), None)
-        .await?;
+    let res = api.get::<TypeResponse, TypeError>("/my-route").await;
 
-    println!("{0}", result.body.unwrap());
+    match res {
+        Ok(res) => println!("{:?}", res.data),
+        Err(err) => println!("{:?}", err),
+    };
+
+    //let res = api.post::<TypeRequest, TypeResponse, TypeError>("/my-route").await;
 }
 ```
 

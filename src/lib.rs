@@ -1,9 +1,9 @@
 mod axios;
 mod config;
 mod error;
-mod interceptor;
 mod method;
 mod response;
+mod middleware;
 
 
 pub use crate::axios::Axios;
